@@ -10,7 +10,11 @@ import type { TabType } from './types';
 import './App.css';
 
 export const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<TabType>('home');
+  const [activeTab, setActiveTab] = useState<TabType>(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tabParam = params.get('tab') as TabType;
+    return tabParam && ['home', 'map', 'safety', 'devices'].includes(tabParam) ? tabParam : 'home';
+  });
   const [isEmergencyActive, setIsEmergencyActive] = useState<boolean>(false);
   const [isProfileOpen, setIsProfileOpen] = useState<boolean>(false);
 
