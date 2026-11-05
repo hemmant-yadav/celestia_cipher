@@ -1,0 +1,78 @@
+/* Desktop presentation stage */
+.app-desktop-stage {
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #EDE4E5; /* Soft, warm architectural champagne-blush backdrop */
+  position: relative;
+  overflow: hidden;
+  box-sizing: border-box;
+  padding: 16px;
+}
+
+/* Scaling container */
+.app-scale-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* The actual mobile application viewport — standard realistic mobile screen dimensions */
+.mobile-app-viewport {
+  position: relative;
+  width: 360px;
+  height: 660px;
+  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
+  background-color: var(--color-canvas);
+  border-radius: 28px;
+  border: 1px solid var(--color-border);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  user-select: none;
+  box-shadow: 0 14px 32px -8px rgba(185, 111, 128, 0.16), 0 2px 6px rgba(40, 35, 38, 0.04);
+  flex-shrink: 0;
+}
+
+/* Responsive: edge-to-edge native appearance on actual mobile devices */
+@media (max-width: 600px) {
+  html, body, #root {
+    width: 100% !important;
+    height: 100% !important;
+    height: 100dvh !important;
+    overflow: hidden !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  .app-desktop-stage {
+    background-color: var(--color-canvas) !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    height: 100dvh !important;
+  }
+  .app-scale-container {
+    width: 100% !important;
+    height: 100% !important;
+    height: 100dvh !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    transform: none !important;
+  }
+  .mobile-app-viewport {
+    width: 100% !important;
+    height: 100% !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    border-radius: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+}
