@@ -20,10 +20,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
-        backgroundImage: 'url(/assets/safety-bg.jpg)',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center 42%',
-        backgroundRepeat: 'no-repeat',
+        backgroundColor: 'transparent',
         overflow: 'hidden',
       }}
     >

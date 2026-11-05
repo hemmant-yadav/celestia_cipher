@@ -29,17 +29,16 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onTabChange }) 
         bottom: 0,
         left: 0,
         right: 0,
-        backgroundColor: 'var(--color-surface)',
-        borderTop: '1px solid var(--color-border)',
-        paddingTop: '10px',
-        paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0px))',
+        backgroundColor: 'rgba(255, 246, 248, 0.88)',
+        borderTop: '1px solid rgba(220, 195, 202, 0.45)',
+        paddingTop: '8px',
+        paddingBottom: 'calc(10px + env(safe-area-inset-bottom, 0px))',
         paddingLeft: '16px',
         paddingRight: '16px',
         zIndex: 40,
         display: 'flex',
         justifyContent: 'space-around',
         alignItems: 'center',
-        boxShadow: '0 -4px 16px rgba(185, 111, 128, 0.06)',
       }}
     >
       {NAV_ITEMS.map((item) => {
@@ -76,9 +75,9 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onTabChange }) 
               }}
             >
               <IconComponent
-                size={22}
-                strokeWidth={isActive ? 2.1 : 1.6}
-                color={isActive ? 'var(--color-rose-deep)' : 'var(--color-text-muted)'}
+                size={21}
+                strokeWidth={isActive ? 2.2 : 1.7}
+                color={isActive ? 'var(--color-rose-deep)' : '#655358'}
               />
             </div>
 
@@ -86,10 +85,10 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onTabChange }) 
               style={{
                 fontFamily: 'var(--font-ui)',
                 fontSize: '11px',
-                fontWeight: isActive ? 600 : 500,
+                fontWeight: isActive ? 700 : 500,
                 letterSpacing: '0.01em',
                 lineHeight: 1.1,
-                color: isActive ? 'var(--color-text)' : 'var(--color-text-muted)',
+                color: isActive ? '#282326' : '#655358',
               }}
             >
               {item.label}

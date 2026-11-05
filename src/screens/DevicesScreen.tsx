@@ -112,13 +112,13 @@ export const DevicesScreen: React.FC = () => {
         position: 'relative',
         width: '100%',
         height: '100%',
-        backgroundColor: 'var(--color-canvas)',
+        backgroundColor: 'transparent',
         display: 'flex',
         flexDirection: 'column',
         overflowY: 'auto',
         color: 'var(--color-text)',
         paddingTop: 'calc(18px + env(safe-area-inset-top, 0px))',
-        paddingBottom: 'calc(74px + env(safe-area-inset-bottom, 0px))',
+        paddingBottom: 'calc(96px + env(safe-area-inset-bottom, 0px))',
         paddingLeft: '16px',
         paddingRight: '16px',
         WebkitOverflowScrolling: 'touch',
@@ -276,8 +276,8 @@ export const DevicesScreen: React.FC = () => {
               style={{
                 fontFamily: 'var(--font-ui)',
                 fontSize: '12px',
-                fontWeight: 600,
-                color: 'var(--color-rose-deep)',
+                fontWeight: 700,
+                color: '#3B121C',
                 letterSpacing: '0.02em',
               }}
             >
@@ -287,9 +287,9 @@ export const DevicesScreen: React.FC = () => {
 
           <div
             style={{
-              backgroundColor: 'var(--color-surface)',
+              backgroundColor: 'rgba(255, 255, 255, 0.82)',
               borderRadius: '16px',
-              border: '1px solid var(--color-border)',
+              border: '1px solid rgba(235, 218, 222, 0.7)',
               boxShadow: '0 2px 8px rgba(185, 111, 128, 0.04)',
               overflow: 'hidden',
             }}
@@ -413,8 +413,8 @@ export const DevicesScreen: React.FC = () => {
             style={{
               fontFamily: 'var(--font-ui)',
               fontSize: '12px',
-              fontWeight: 600,
-              color: 'var(--color-rose-deep)',
+              fontWeight: 700,
+              color: '#3B121C',
               letterSpacing: '0.02em',
             }}
           >
@@ -425,9 +425,9 @@ export const DevicesScreen: React.FC = () => {
         {/* Grouped Surface */}
         <div
           style={{
-            backgroundColor: 'var(--color-surface)',
+            backgroundColor: 'rgba(255, 255, 255, 0.82)',
             borderRadius: '16px',
-            border: '1px solid var(--color-border)',
+            border: '1px solid rgba(235, 218, 222, 0.7)',
             boxShadow: '0 2px 8px rgba(185, 111, 128, 0.04)',
             overflow: 'hidden',
           }}
@@ -443,19 +443,7 @@ export const DevicesScreen: React.FC = () => {
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div
-                style={{
-                  width: '28px',
-                  height: '28px',
-                  borderRadius: '8px',
-                  backgroundColor: 'var(--color-surface-soft)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Battery size={15} color="var(--color-rose-deep)" strokeWidth={1.8} />
-              </div>
+              <Battery size={16} color="var(--color-rose-deep)" strokeWidth={1.8} style={{ flexShrink: 0 }} />
               <div>
                 <p style={{ fontSize: '13px', fontWeight: 600 }}>Low Battery Warning</p>
                 <p style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
@@ -509,19 +497,7 @@ export const DevicesScreen: React.FC = () => {
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div
-                style={{
-                  width: '28px',
-                  height: '28px',
-                  borderRadius: '8px',
-                  backgroundColor: 'var(--color-surface-soft)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Bell size={15} color="var(--color-rose-deep)" strokeWidth={1.8} />
-              </div>
+              <Bell size={16} color="var(--color-rose-deep)" strokeWidth={1.8} style={{ flexShrink: 0 }} />
               <div>
                 <p style={{ fontSize: '13px', fontWeight: 600 }}>Disconnection Alert</p>
                 <p style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
@@ -574,19 +550,7 @@ export const DevicesScreen: React.FC = () => {
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div
-                style={{
-                  width: '28px',
-                  height: '28px',
-                  borderRadius: '8px',
-                  backgroundColor: 'var(--color-surface-soft)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Radio size={15} color="var(--color-rose-deep)" strokeWidth={1.8} />
-              </div>
+              <Radio size={16} color="var(--color-rose-deep)" strokeWidth={1.8} style={{ flexShrink: 0 }} />
               <div>
                 <p style={{ fontSize: '13px', fontWeight: 600 }}>Sync Status Alerts</p>
                 <p style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
@@ -638,8 +602,8 @@ export const DevicesScreen: React.FC = () => {
             style={{
               fontFamily: 'var(--font-ui)',
               fontSize: '12px',
-              fontWeight: 600,
-              color: 'var(--color-rose-deep)',
+              fontWeight: 700,
+              color: '#3B121C',
               letterSpacing: '0.02em',
             }}
           >
@@ -650,9 +614,9 @@ export const DevicesScreen: React.FC = () => {
         {/* Grouped Surface */}
         <div
           style={{
-            backgroundColor: 'var(--color-surface)',
+            backgroundColor: 'rgba(255, 255, 255, 0.82)',
             borderRadius: '16px',
-            border: '1px solid var(--color-border)',
+            border: '1px solid rgba(235, 218, 222, 0.7)',
             boxShadow: '0 2px 8px rgba(185, 111, 128, 0.04)',
             overflow: 'hidden',
           }}
@@ -674,19 +638,7 @@ export const DevicesScreen: React.FC = () => {
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div
-                style={{
-                  width: '28px',
-                  height: '28px',
-                  borderRadius: '8px',
-                  backgroundColor: 'var(--color-surface-soft)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Sliders size={15} color="var(--color-rose-deep)" strokeWidth={1.8} />
-              </div>
+              <Sliders size={16} color="var(--color-rose-deep)" strokeWidth={1.8} style={{ flexShrink: 0 }} />
               <p style={{ fontSize: '13px', fontWeight: 600 }}>Primary SOS Trigger</p>
             </div>
 
@@ -709,19 +661,7 @@ export const DevicesScreen: React.FC = () => {
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div
-                style={{
-                  width: '28px',
-                  height: '28px',
-                  borderRadius: '8px',
-                  backgroundColor: 'var(--color-surface-soft)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Bell size={15} color="var(--color-rose-deep)" strokeWidth={1.8} />
-              </div>
+              <Bell size={16} color="var(--color-rose-deep)" strokeWidth={1.8} style={{ flexShrink: 0 }} />
               <div>
                 <p style={{ fontSize: '13px', fontWeight: 600 }}>Wearable Haptics</p>
                 <p style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
@@ -774,19 +714,7 @@ export const DevicesScreen: React.FC = () => {
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div
-                style={{
-                  width: '28px',
-                  height: '28px',
-                  borderRadius: '8px',
-                  backgroundColor: 'var(--color-surface-soft)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Radio size={15} color="var(--color-rose-deep)" strokeWidth={1.8} />
-              </div>
+              <Radio size={16} color="var(--color-rose-deep)" strokeWidth={1.8} style={{ flexShrink: 0 }} />
               <div>
                 <p style={{ fontSize: '13px', fontWeight: 600 }}>Auto-Reconnect</p>
                 <p style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
