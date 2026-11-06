@@ -1,0 +1,180 @@
+#include <SoftwareSerial.h>
+
+SoftwareSerial sim(7, 8);   // Arduino RX=7 (SIM TX), TX=8 (SIM RX)
+
+// Emergency recipient phone numbers (can be dynamically updated over serial from web app)
+String targetNumber1 = "+918197149231";  // Primary emergency recipient
+String targetNumber2 = "";               // Optional secondary recipient (added on page)
+
+const unsigned long WAIT_TIME = 30000UL;   // 30 seconds
+const bool DEBUG = true;                   // true = echo raw SIM800L responses to Serial for debugging
+
+// Default coordinates (RRCE / Bengaluru campus location)
+String currentLat = "12.8867";
+String currentLng = "77.4503";
+
+String simBuf = "";
+String cmdBuf = "";
+
+void show(unsigned long ms) {
+  unsigned long t = millis();
+  while (millis() - t < ms) {
+    while (sim.available()) {
+      char c = sim.read();
+      if (DEBUG) Serial.write(c);
+      simBuf += c;
+      if (simBuf.length() > 200) simBuf.remove(0, 100);
+    }
+  }
+}
+
+void cmd(const char *c, unsigned long wait = 1500) {
+  sim.println(c);
+  show(wait);
+}
+
+void sendSMS(const String &number) {
+  if (number.length() < 5) return;
+
+  // 1. Force Text Mode & GSM Encoding right before sending
+  cmd("AT+CMGF=1", 1000);
+  cmd("AT+CSCS=\"GSM\"", 1000);
+  cmd("AT+CSMP=17,167,0,0", 1000);  // Critical for SMS delivery on Indian carriers (+91)
+  delay(300);
+
+  // 2. Send SMS Command
+  sim.print(F("AT+CMGS=\""));
+  sim.print(number);
+  sim.println(F("\""));
+  show(2000);                       // Wait for '>' prompt from module
+
+  // 3. Send Message body with live coordinates & clickable Google Maps link
+  sim.print(F("EMERGENCY! I need help.\n"));
+  sim.print(F("Location: "));
+  sim.print(currentLat);
+  sim.print(F(","));
+  sim.print(currentLng);
+  sim.print(F("\nhttps://maps.google.com/?q="));
+  sim.print(currentLat);
+  sim.print(F(","));
+  sim.print(currentLng);
+  sim.print(F("\nReply to confirm or I will call."));
+
+  delay(500);
+  sim.write(26);                    // Ctrl+Z transmits SMS
+  show(8000);                       // Wait for carrier network confirmation (+CMGS: xx)
+}
+
+void makeCall(const String &number) {
+  if (number.length() < 5) return;
+  Serial.println(F("STATUS:CALLING"));
+  sim.print(F("ATD"));
+  sim.print(number);
+  sim.println(F(";"));
+  show(30000);                      // Ring for 30 s
+  cmd("ATH");
+  Serial.println(F("STATUS:CALL_ENDED"));
+}
+
+void runSOS() {
+  Serial.println(F("STATUS:SOS_RECEIVED"));
+  cmd("AT+CMGD=1,4");               // Clear old SMS memory
+
+  // 1. Deliver SMS to primary recipient number
+  sendSMS(targetNumber1);
+
+  // 2. If a secondary number was added on the page, deliver SMS to that number too!
+  if (targetNumber2.length() >= 5 && targetNumber2 != targetNumber1) {
+    delay(2000);
+    sendSMS(targetNumber2);
+  }
+
+  Serial.println(F("STATUS:SMS_SENT"));
+
+  simBuf = "";
+  unsigned long start = millis();
+  bool replied = false;
+  while (millis() - start < WAIT_TIME) {
+    show(200);
+    if (simBuf.indexOf("+CMTI") >= 0 || simBuf.indexOf("+CMT:") >= 0) {
+      replied = true;
+      break;
+    }
+  }
+
+  if (replied) {
+    Serial.println(F("STATUS:REPLIED"));
+    cmd("AT+CMGD=1,4");
+  } else {
+    makeCall(targetNumber1);
+  }
+  Serial.println(F("STATUS:DONE"));
+}
+
+void setup() {
+  Serial.begin(9600);
+  sim.begin(9600);
+  delay(5000);
+  cmd("AT");
+  cmd("AT+CMGF=1");
+  cmd("AT+CSCS=\"GSM\"");
+  cmd("AT+CSMP=17,167,0,0");
+  cmd("AT+CNMI=2,1,0,0,0");
+  cmd("AT+CMGD=1,4");
+  Serial.println(F("READY"));
+}
+
+void loop() {
+  while (Serial.available()) {
+    char c = Serial.read();
+    if (c == '\n' || c == '\r') {
+      cmdBuf.trim();
+      if (cmdBuf.startsWith("SOS")) {
+        // Supported serial commands:
+        // 1. "SOS" -> uses defaults
+        // 2. "SOS:lat,lng" -> updates coordinates
+        // 3. "SOS:phone:lat,lng" -> updates primary phone and coordinates
+        // 4. "SOS:phone:lat,lng:phone2" -> delivers SMS to both phone numbers!
+        if (cmdBuf.length() > 4 && cmdBuf.charAt(3) == ':') {
+          String rest = cmdBuf.substring(4);
+          int nextColon = rest.indexOf(':');
+          if (nextColon > 0) {
+            String p1 = rest.substring(0, nextColon);
+            p1.trim();
+            if (p1.length() >= 5) targetNumber1 = p1;
+
+            String coordsAndP2 = rest.substring(nextColon + 1);
+            int colon2 = coordsAndP2.indexOf(':');
+            String coords = (colon2 > 0) ? coordsAndP2.substring(0, colon2) : coordsAndP2;
+            if (colon2 > 0) {
+              String p2 = coordsAndP2.substring(colon2 + 1);
+              p2.trim();
+              if (p2.length() >= 5) targetNumber2 = p2;
+            }
+
+            int comma = coords.indexOf(',');
+            if (comma > 0) {
+              currentLat = coords.substring(0, comma);
+              currentLng = coords.substring(comma + 1);
+              currentLat.trim();
+              currentLng.trim();
+            }
+          } else {
+            // "SOS:lat,lng"
+            int comma = rest.indexOf(',');
+            if (comma > 0) {
+              currentLat = rest.substring(0, comma);
+              currentLng = rest.substring(comma + 1);
+              currentLat.trim();
+              currentLng.trim();
+            }
+          }
+        }
+        runSOS();
+      }
+      cmdBuf = "";
+    } else if (cmdBuf.length() < 90) {
+      cmdBuf += c;
+    }
+  }
+}

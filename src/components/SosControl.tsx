@@ -3,11 +3,17 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 interface SosControlProps {
   onActivate: () => void;
   holdDurationMs?: number;
+  disabled?: boolean;
+  disabledReason?: string;
+  onDisabledClick?: () => void;
 }
 
 export const SosControl: React.FC<SosControlProps> = ({
   onActivate,
-  holdDurationMs = 2800,
+  holdDurationMs = 1000,
+  disabled = false,
+  disabledReason,
+  onDisabledClick,
 }) => {
   const [isPressing, setIsPressing] = useState(false);
   const [progress, setProgress] = useState(0); // 0 to 100
@@ -25,6 +31,10 @@ export const SosControl: React.FC<SosControlProps> = ({
   const strokeDashoffset = circumference - (progress / 100) * circumference;
 
   const startHold = useCallback(() => {
+    if (disabled) {
+      if (onDisabledClick) onDisabledClick();
+      return;
+    }
     if (isTriggeredRef.current) return;
     setIsPressing(true);
     const start = performance.now();
@@ -66,7 +76,7 @@ export const SosControl: React.FC<SosControlProps> = ({
         onActivate();
       }
     }, 16);
-  }, [holdDurationMs, onActivate]);
+  }, [disabled, holdDurationMs, onActivate, onDisabledClick]);
 
   const cancelHold = useCallback(() => {
     if (isTriggeredRef.current) return;
@@ -142,8 +152,13 @@ export const SosControl: React.FC<SosControlProps> = ({
       {/* Central Sculptural Control */}
       <div
         role="button"
-        tabIndex={0}
-        aria-label="Emergency SOS. Press and hold for 3 seconds to activate."
+        tabIndex={disabled ? -1 : 0}
+        aria-label={
+          disabled
+            ? `Emergency SOS (${disabledReason || 'Disabled'})`
+            : "Emergency SOS. Press and hold for 1 second to activate."
+        }
+        aria-disabled={disabled}
         aria-pressed={isPressing}
         onMouseDown={startHold}
         onTouchStart={startHold}
@@ -157,11 +172,13 @@ export const SosControl: React.FC<SosControlProps> = ({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          cursor: 'pointer',
+          cursor: disabled ? (onDisabledClick ? 'pointer' : 'not-allowed') : 'pointer',
           outline: 'none',
           userSelect: 'none',
           WebkitTapHighlightColor: 'transparent',
           touchAction: 'none',
+          opacity: disabled ? 0.85 : 1,
+          transition: 'opacity 200ms ease',
         }}
       >
         {/* Outer Circular Activation Gauge */}
@@ -192,7 +209,7 @@ export const SosControl: React.FC<SosControlProps> = ({
             cy={ringSize / 2}
             r={radius}
             fill="none"
-            stroke="var(--color-sos)"
+            stroke={disabled ? '#A09094' : 'var(--color-sos)'}
             strokeWidth={strokeWidth + 1}
             strokeDasharray={circumference}
             strokeDashoffset={strokeDashoffset}
@@ -305,10 +322,16 @@ export const SosControl: React.FC<SosControlProps> = ({
                 width: '92px',
                 height: '92px',
                 borderRadius: '50%',
-                backgroundColor: isPressing ? 'var(--color-sos-deep)' : 'var(--color-sos)',
-                border: '1.5px solid #AC2633',
+                backgroundColor: disabled
+                  ? '#8C7478'
+                  : isPressing
+                  ? 'var(--color-sos-deep)'
+                  : 'var(--color-sos)',
+                border: disabled ? '1.5px solid #786266' : '1.5px solid #AC2633',
                 boxShadow: isPressing
                   ? 'inset 0 3px 6px rgba(0, 0, 0, 0.36), 0 3px 8px rgba(184, 40, 54, 0.3)'
+                  : disabled
+                  ? 'inset 0 2px 4px rgba(255, 255, 255, 0.15), inset 0 -2.5px 5px rgba(0, 0, 0, 0.15)'
                   : 'inset 0 2px 4px rgba(255, 255, 255, 0.25), inset 0 -2.5px 5px rgba(0, 0, 0, 0.2), 0 6px 14px rgba(184, 40, 54, 0.36)',
                 display: 'flex',
                 flexDirection: 'column',
@@ -334,7 +357,7 @@ export const SosControl: React.FC<SosControlProps> = ({
                 SOS
               </span>
 
-              {/* Hold Action Cue / Countdown */}
+              {/* Hold Action Cue / Countdown / Status */}
               <span
                 style={{
                   marginTop: '3.5px',
@@ -348,7 +371,11 @@ export const SosControl: React.FC<SosControlProps> = ({
                   lineHeight: 1,
                 }}
               >
-                {isPressing ? `${timeRemaining}s` : 'HOLD 3s'}
+                {isPressing
+                  ? `${timeRemaining}s`
+                  : disabled
+                  ? (disabledReason || 'WAITING')
+                  : 'HOLD 1s'}
               </span>
             </div>
           </div>

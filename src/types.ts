@@ -1,4 +1,4 @@
-export type TabType = 'home' | 'map' | 'safety' | 'devices';
+export type TabType = 'home' | 'map' | 'safety' | 'devices' | 'admin';
 
 export type EmergencyActionStatus = 
   | 'idle' 

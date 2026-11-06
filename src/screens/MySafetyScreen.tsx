@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Mic,
+  MicOff,
   Activity,
   Bell,
   Timer,
@@ -13,20 +14,121 @@ import {
   X,
   Plus,
   Check,
-  Volume2
+  Volume2,
+  Languages
 } from 'lucide-react';
+import {
+  voiceSos,
+  type VoiceSosState,
+  DEFAULT_STANDALONE_KEYWORDS,
+  DEFAULT_NATURAL_PHRASES,
+} from '../services/voiceSos';
+import { useTranslation } from '../services/i18n';
+import { contactSettings } from '../services/contactSettings';
 
 export const MySafetyScreen: React.FC = () => {
+  const { t, language, languages, openLanguageModal } = useTranslation();
+  // Voice SOS Engine State
+  const [voiceState, setVoiceState] = useState<VoiceSosState>(voiceSos.getState());
+  const [customKeywords, setCustomKeywords] = useState<string[]>(voiceSos.getConfig().customPhrases);
+  const [newPhraseInput, setNewPhraseInput] = useState('');
+  const [phraseError, setPhraseError] = useState('');
+
   // Three vertical layout toggles
-  const [voiceEnabled, setVoiceEnabled] = useState<boolean>(true);
+  const isVoiceListening = voiceState === 'listening';
+  const isVoiceError = voiceState === 'permission_denied' || voiceState === 'unsupported' || voiceState === 'error';
+  const [voiceBusy, setVoiceBusy] = useState(false);
+  const [voiceErrorMsg, setVoiceErrorMsg] = useState('');
   const [shakeEnabled, setShakeEnabled] = useState<boolean>(true);
   const [criticalAlertsEnabled, setCriticalAlertsEnabled] = useState<boolean>(true);
 
   // Modal sheet state for navigation rows
   const [activeModal, setActiveModal] = useState<string | null>(null);
 
+  // Emergency contacts state (live from contactSettings)
+  const [primaryPhone, setPrimaryPhone] = useState(() => contactSettings.getContacts().primaryPhone);
+  const [secondaryPhone, setSecondaryPhone] = useState(() => contactSettings.getContacts().secondaryPhone);
+  const [showSecondaryInput, setShowSecondaryInput] = useState(() => Boolean(contactSettings.getContacts().secondaryPhone));
+  const [contactSaveSuccess, setContactSaveSuccess] = useState(false);
+
   // Fake call state
   const [fakeCallTimer, setFakeCallTimer] = useState<number | null>(null);
+
+  useEffect(() => {
+    const unsub = voiceSos.subscribe((state) => {
+      setVoiceState(state);
+      setCustomKeywords(voiceSos.getConfig().customPhrases);
+    });
+    return () => unsub();
+  }, []);
+
+  // Sync contact changes from other tabs/drawers
+  useEffect(() => {
+    const unsub = contactSettings.subscribe((c) => {
+      setPrimaryPhone(c.primaryPhone);
+      setSecondaryPhone(c.secondaryPhone);
+      if (c.secondaryPhone) setShowSecondaryInput(true);
+    });
+    return () => unsub();
+  }, []);
+
+  const handleToggleVoice = async () => {
+    if (isVoiceListening) {
+      voiceSos.disable();
+      setVoiceErrorMsg('');
+      return;
+    }
+
+    // Check if Speech API is available at all
+    const hasSpeechAPI = !!(
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+    );
+    if (!hasSpeechAPI) {
+      setVoiceErrorMsg('Voice SOS requires Chrome or Edge browser.');
+      return;
+    }
+
+    // Check if we're on HTTP (not localhost) — Speech API blocked
+    const isInsecure =
+      location.protocol === 'http:' &&
+      location.hostname !== 'localhost' &&
+      location.hostname !== '127.0.0.1';
+    if (isInsecure) {
+      setVoiceErrorMsg('Voice SOS needs HTTPS or localhost. Use http://localhost:5173 on this PC.');
+      return;
+    }
+
+    setVoiceBusy(true);
+    setVoiceErrorMsg('');
+    try {
+      const ok = await voiceSos.enable();
+      if (!ok) {
+        const s = voiceSos.getState();
+        if (s === 'permission_denied') {
+          setVoiceErrorMsg('Microphone access denied. Allow mic in browser settings and retry.');
+        } else {
+          setVoiceErrorMsg('Could not start Voice SOS. Try again.');
+        }
+      }
+    } finally {
+      setVoiceBusy(false);
+    }
+  };
+
+  const handleAddPhrase = () => {
+    if (!newPhraseInput.trim()) return;
+    const added = voiceSos.addCustomPhrase(newPhraseInput);
+    if (!added) {
+      setPhraseError('Phrase already exists or is too short (min 2 chars)');
+    } else {
+      setNewPhraseInput('');
+      setPhraseError('');
+    }
+  };
+
+  const handleRemovePhrase = (phrase: string) => {
+    voiceSos.removeCustomPhrase(phrase);
+  };
 
   const handleTriggerFakeCall = (seconds: number) => {
     setActiveModal(null);
@@ -62,28 +164,63 @@ export const MySafetyScreen: React.FC = () => {
       }}
     >
       {/* Screen Editorial Header */}
-      <header style={{ marginBottom: '16px', paddingLeft: '4px' }}>
-        <h1
+      <header
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          marginBottom: '16px',
+          paddingLeft: '4px',
+        }}
+      >
+        <div>
+          <h1
+            style={{
+              fontFamily: 'var(--font-display)',
+              fontSize: '28px',
+              fontWeight: 600,
+              lineHeight: 1.15,
+              color: 'var(--color-text)',
+            }}
+          >
+            {t('safety.title')}
+          </h1>
+          <p
+            style={{
+              fontFamily: 'var(--font-ui)',
+              fontSize: '12px',
+              color: '#655358',
+              marginTop: '3px',
+            }}
+          >
+            {t('safety.subtitle')}
+          </p>
+        </div>
+
+        {/* Multilingual Switcher Icon */}
+        <button
+          onClick={openLanguageModal}
+          title={`Language: ${languages.find((l) => l.code === language)?.nativeName} (Tap to change)`}
+          aria-label="Change Application Language"
           style={{
-            fontFamily: 'var(--font-display)',
-            fontSize: '28px',
-            fontWeight: 600,
-            lineHeight: 1.15,
+            width: '34px',
+            height: '34px',
+            borderRadius: '50%',
+            backgroundColor: 'rgba(255, 255, 255, 0.75)',
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+            border: '1px solid rgba(235, 218, 222, 0.8)',
+            boxShadow: '0 2px 8px rgba(185, 111, 128, 0.08)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
             color: 'var(--color-text)',
+            cursor: 'pointer',
+            transition: 'transform var(--motion-fast)',
           }}
         >
-          My Safety
-        </h1>
-        <p
-          style={{
-            fontFamily: 'var(--font-ui)',
-            fontSize: '12px',
-            color: '#655358',
-            marginTop: '3px',
-          }}
-        >
-          Emergency configuration & trusted circle
-        </p>
+          <Languages size={16} strokeWidth={1.8} color="var(--color-text)" />
+        </button>
       </header>
 
       {/* ---------------- 1. TRUSTED CONTACTS ---------------- */}
@@ -107,7 +244,7 @@ export const MySafetyScreen: React.FC = () => {
               letterSpacing: '0.02em',
             }}
           >
-            Trusted Contacts (2)
+            {t('safety.trustedContacts')} (2)
           </span>
           <button
             onClick={() => setActiveModal('contacts')}
@@ -120,7 +257,7 @@ export const MySafetyScreen: React.FC = () => {
               padding: '2px 6px',
             }}
           >
-            Manage
+            {t('safety.manage')}
           </button>
         </div>
 
@@ -163,12 +300,12 @@ export const MySafetyScreen: React.FC = () => {
                   flexShrink: 0,
                 }}
               >
-                ML
+                EC
               </div>
               <div>
-                <p style={{ fontSize: '13px', fontWeight: 600, lineHeight: 1.2 }}>Maya Lin</p>
+                <p style={{ fontSize: '13px', fontWeight: 600, lineHeight: 1.2 }}>Emergency Contact</p>
                 <p style={{ fontSize: '11px', color: '#655358', marginTop: '2px' }}>
-                  Sister • +1 (555) 392-1048
+                  Primary • +91 8197149231
                 </p>
               </div>
             </div>
@@ -184,7 +321,7 @@ export const MySafetyScreen: React.FC = () => {
                 borderRadius: '6px',
               }}
             >
-              Alerts active
+              {t('safety.alertsActive')}
             </span>
           </div>
 
@@ -216,12 +353,12 @@ export const MySafetyScreen: React.FC = () => {
                   flexShrink: 0,
                 }}
               >
-                DK
+                PD
               </div>
               <div>
-                <p style={{ fontSize: '13px', fontWeight: 600, lineHeight: 1.2 }}>David K.</p>
+                <p style={{ fontSize: '13px', fontWeight: 600, lineHeight: 1.2 }}>Police Dispatch</p>
                 <p style={{ fontSize: '11px', color: '#655358', marginTop: '2px' }}>
-                  Partner • +1 (555) 720-9112
+                  Central Emergency • 112
                 </p>
               </div>
             </div>
@@ -237,7 +374,7 @@ export const MySafetyScreen: React.FC = () => {
                 borderRadius: '6px',
               }}
             >
-              Alerts active
+              {t('safety.alertsActive')}
             </span>
           </div>
         </div>
@@ -255,7 +392,7 @@ export const MySafetyScreen: React.FC = () => {
               letterSpacing: '0.02em',
             }}
           >
-            Instant Triggers
+            {t('safety.instantTriggers')}
           </span>
         </div>
 
@@ -267,48 +404,98 @@ export const MySafetyScreen: React.FC = () => {
             gap: '8px',
           }}
         >
-          {/* Vertical Toggle 1: Voice Trigger */}
+          {/* Vertical Toggle 1: Voice Trigger (Click to configure keywords) */}
           <div
+            onClick={() => setActiveModal('voice')}
             style={{
-              backgroundColor: 'rgba(255, 255, 255, 0.82)',
+              backgroundColor: isVoiceListening ? 'rgba(232, 245, 233, 0.75)' : 'rgba(255, 255, 255, 0.82)',
               borderRadius: '14px',
-              border: '1px solid rgba(235, 218, 222, 0.7)',
+              border: isVoiceListening
+                ? '1px solid rgba(46, 125, 50, 0.35)'
+                : '1px solid rgba(235, 218, 222, 0.7)',
               padding: '12px 6px',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
               textAlign: 'center',
               boxShadow: '0 2px 6px rgba(185, 111, 128, 0.04)',
+              cursor: 'pointer',
+              transition: 'all 160ms ease',
             }}
           >
             {/* Small refined icon at the top */}
-            <Mic size={17} strokeWidth={1.8} color="var(--color-rose-deep)" />
+            <div style={{ position: 'relative' }}>
+              <Mic
+                size={17}
+                strokeWidth={2}
+                color={isVoiceListening ? '#2E7D32' : 'var(--color-rose-deep)'}
+              />
+              {isVoiceListening && (
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: '-2px',
+                    right: '-4px',
+                    width: '6px',
+                    height: '6px',
+                    borderRadius: '50%',
+                    backgroundColor: '#2E7D32',
+                    boxShadow: '0 0 6px #2E7D32',
+                  }}
+                />
+              )}
+            </div>
 
             {/* Setting name and short description underneath */}
             <p style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--color-text)', marginTop: '6px', lineHeight: 1.15 }}>
-              Voice Trigger
+              {t('safety.voiceSos')}
             </p>
-            <p style={{ fontSize: '9.5px', color: '#655358', marginTop: '2px', lineHeight: 1.2 }}>
-              "Aura, help"
+            <p
+              style={{
+                fontSize: '9.5px',
+                color: isVoiceListening ? '#2E7D32' : isVoiceError ? 'var(--color-sos)' : '#655358',
+                fontWeight: isVoiceListening || isVoiceError ? 700 : 500,
+                marginTop: '2px',
+                lineHeight: 1.2,
+              }}
+            >
+              {isVoiceListening
+                ? t('safety.voiceActive')
+                : voiceBusy
+                ? 'Starting...'
+                : isVoiceError
+                ? voiceState === 'permission_denied' ? 'Mic blocked' : 'Unavailable'
+                : t('safety.tapSetup')}
             </p>
+            {/* Error message below the card if any */}
+            {voiceErrorMsg && (
+              <p style={{ fontSize: '9px', color: 'var(--color-sos)', marginTop: '4px', lineHeight: 1.3, textAlign: 'center' }}>
+                {voiceErrorMsg}
+              </p>
+            )}
 
             {/* Toggle switch at the bottom */}
             <button
               role="switch"
-              aria-checked={voiceEnabled}
+              aria-checked={isVoiceListening}
               aria-label="Toggle Voice Trigger"
-              onClick={() => setVoiceEnabled(!voiceEnabled)}
+              disabled={voiceBusy}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleToggleVoice();
+              }}
               style={{
                 marginTop: '10px',
                 width: '34px',
                 height: '20px',
                 borderRadius: '10px',
-                backgroundColor: voiceEnabled ? 'var(--color-rose-deep)' : '#E0D4D6',
+                backgroundColor: isVoiceListening ? '#2E7D32' : isVoiceError ? '#C8404B' : '#E0D4D6',
                 position: 'relative',
-                cursor: 'pointer',
+                cursor: voiceBusy ? 'not-allowed' : 'pointer',
                 transition: 'background-color 160ms ease-out',
                 border: 'none',
                 outline: 'none',
+                opacity: voiceBusy ? 0.6 : 1,
               }}
             >
               <div
@@ -319,7 +506,7 @@ export const MySafetyScreen: React.FC = () => {
                   backgroundColor: '#FFFFFF',
                   position: 'absolute',
                   top: '2px',
-                  left: voiceEnabled ? '16px' : '2px',
+                  left: isVoiceListening ? '16px' : '2px',
                   boxShadow: '0 1px 3px rgba(0,0,0,0.18)',
                   transition: 'left 160ms cubic-bezier(0.2, 0, 0, 1)',
                 }}
@@ -346,7 +533,7 @@ export const MySafetyScreen: React.FC = () => {
 
             {/* Setting name and short description underneath */}
             <p style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--color-text)', marginTop: '6px', lineHeight: 1.15 }}>
-              Shake Detect
+              {t('safety.shakeDetection')}
             </p>
             <p style={{ fontSize: '9.5px', color: '#655358', marginTop: '2px', lineHeight: 1.2 }}>
               Multi-shake
@@ -406,10 +593,10 @@ export const MySafetyScreen: React.FC = () => {
 
             {/* Setting name and short description underneath */}
             <p style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--color-text)', marginTop: '6px', lineHeight: 1.15 }}>
-              Critical Alerts
+              {t('safety.criticalAlerts')}
             </p>
             <p style={{ fontSize: '9.5px', color: '#655358', marginTop: '2px', lineHeight: 1.2 }}>
-              Bypass DND
+              {t('safety.highPriority')}
             </p>
 
             {/* Toggle switch at the bottom */}
@@ -461,7 +648,7 @@ export const MySafetyScreen: React.FC = () => {
               letterSpacing: '0.02em',
             }}
           >
-            Protocols & Tools
+            {t('safety.safeguards')}
           </span>
         </div>
 
@@ -475,6 +662,36 @@ export const MySafetyScreen: React.FC = () => {
             overflow: 'hidden',
           }}
         >
+          {/* Language Selection Row */}
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={openLanguageModal}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '11px 14px',
+              borderBottom: '1px solid rgba(235, 218, 222, 0.5)',
+              cursor: 'pointer',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Languages size={16} strokeWidth={1.8} color="var(--color-rose-deep)" style={{ flexShrink: 0 }} />
+              <div>
+                <p style={{ fontSize: '13px', fontWeight: 600 }}>{t('home.selectLang')}</p>
+                <p style={{ fontSize: '11px', color: '#655358' }}>English, हिन्दी, ಕನ್ನಡ, తెలుగు, தமிழ்</p>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ fontSize: '12px', color: '#655358' }}>
+                {languages.find((l) => l.code === language)?.nativeName || 'English'}
+              </span>
+              <ChevronRight size={14} color="var(--color-text-muted)" />
+            </div>
+          </div>
+
           {/* Safety Timer Row */}
           <div
             role="button"
@@ -492,13 +709,13 @@ export const MySafetyScreen: React.FC = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <Timer size={16} strokeWidth={1.8} color="var(--color-rose-deep)" style={{ flexShrink: 0 }} />
               <div>
-                <p style={{ fontSize: '13px', fontWeight: 600 }}>Safety Timer</p>
-                <p style={{ fontSize: '11px', color: '#655358' }}>Automatic check-in alert</p>
+                <p style={{ fontSize: '13px', fontWeight: 600 }}>{t('safety.safetyTimer')}</p>
+                <p style={{ fontSize: '11px', color: '#655358' }}>{t('safety.autoCheckinAlert')}</p>
               </div>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ fontSize: '12px', color: '#655358' }}>Off</span>
+              <span style={{ fontSize: '12px', color: '#655358' }}>{t('safety.off')}</span>
               <ChevronRight size={14} color="var(--color-text-muted)" />
             </div>
           </div>
@@ -520,16 +737,16 @@ export const MySafetyScreen: React.FC = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <PhoneCall size={16} strokeWidth={1.8} color="var(--color-rose-deep)" style={{ flexShrink: 0 }} />
               <div>
-                <p style={{ fontSize: '13px', fontWeight: 600 }}>Fake Call Decoy</p>
+                <p style={{ fontSize: '13px', fontWeight: 600 }}>{t('safety.fakeCall')}</p>
                 <p style={{ fontSize: '11px', color: '#655358' }}>
-                  {fakeCallTimer ? `Calling in ${fakeCallTimer}s...` : 'Simulate incoming call to exit safely'}
+                  {fakeCallTimer ? `Calling in ${fakeCallTimer}s...` : t('safety.fakeCallDesc')}
                 </p>
               </div>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <span style={{ fontSize: '12px', color: fakeCallTimer ? 'var(--color-rose-deep)' : '#655358' }}>
-                {fakeCallTimer ? 'Active' : 'Ready'}
+                {fakeCallTimer ? t('safety.active') : t('safety.ready')}
               </span>
               <ChevronRight size={14} color="var(--color-text-muted)" />
             </div>
@@ -551,13 +768,13 @@ export const MySafetyScreen: React.FC = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <Lock size={16} strokeWidth={1.8} color="var(--color-rose-deep)" style={{ flexShrink: 0 }} />
               <div>
-                <p style={{ fontSize: '13px', fontWeight: 600 }}>Emergency PIN Protection</p>
-                <p style={{ fontSize: '11px', color: '#655358' }}>Required to cancel active SOS</p>
+                <p style={{ fontSize: '13px', fontWeight: 600 }}>{t('safety.pinProtection')}</p>
+                <p style={{ fontSize: '11px', color: '#655358' }}>{t('safety.pinRequiredDesc')}</p>
               </div>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ fontSize: '12px', color: '#655358' }}>Configured</span>
+              <span style={{ fontSize: '12px', color: '#655358' }}>{t('safety.configured')}</span>
               <ChevronRight size={14} color="var(--color-text-muted)" />
             </div>
           </div>
@@ -576,7 +793,7 @@ export const MySafetyScreen: React.FC = () => {
               letterSpacing: '0.02em',
             }}
           >
-            Records & Evidence
+            {t('safety.recordsEvidence')}
           </span>
         </div>
 
@@ -607,13 +824,13 @@ export const MySafetyScreen: React.FC = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <Disc size={16} strokeWidth={1.8} color="var(--color-rose-deep)" style={{ flexShrink: 0 }} />
               <div>
-                <p style={{ fontSize: '13px', fontWeight: 600 }}>Recording Preferences</p>
-                <p style={{ fontSize: '11px', color: '#655358' }}>Ambient audio & GPS tracking</p>
+                <p style={{ fontSize: '13px', fontWeight: 600 }}>{t('safety.recordingPrefs')}</p>
+                <p style={{ fontSize: '11px', color: '#655358' }}>{t('safety.ambientAudioGps')}</p>
               </div>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ fontSize: '12px', color: '#655358' }}>Audio & GPS</span>
+              <span style={{ fontSize: '12px', color: '#655358' }}>{t('safety.audioGps')}</span>
               <ChevronRight size={14} color="var(--color-text-muted)" />
             </div>
           </div>
@@ -635,13 +852,13 @@ export const MySafetyScreen: React.FC = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <FileText size={16} strokeWidth={1.8} color="var(--color-rose-deep)" style={{ flexShrink: 0 }} />
               <div>
-                <p style={{ fontSize: '13px', fontWeight: 600 }}>Incident Reports</p>
-                <p style={{ fontSize: '11px', color: '#655358' }}>Historical emergency logs</p>
+                <p style={{ fontSize: '13px', fontWeight: 600 }}>{t('safety.incidentReports')}</p>
+                <p style={{ fontSize: '11px', color: '#655358' }}>{t('safety.historicalLogs')}</p>
               </div>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ fontSize: '12px', color: '#655358' }}>None logged</span>
+              <span style={{ fontSize: '12px', color: '#655358' }}>{t('safety.noneLogged')}</span>
               <ChevronRight size={14} color="var(--color-text-muted)" />
             </div>
           </div>
@@ -662,13 +879,13 @@ export const MySafetyScreen: React.FC = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <FolderLock size={16} strokeWidth={1.8} color="var(--color-rose-deep)" style={{ flexShrink: 0 }} />
               <div>
-                <p style={{ fontSize: '13px', fontWeight: 600 }}>Evidence Vault</p>
-                <p style={{ fontSize: '11px', color: '#655358' }}>Encrypted recordings repository</p>
+                <p style={{ fontSize: '13px', fontWeight: 600 }}>{t('safety.evidenceVault')}</p>
+                <p style={{ fontSize: '11px', color: '#655358' }}>{t('safety.encryptedRepo')}</p>
               </div>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ fontSize: '12px', color: '#655358' }}>0 recordings</span>
+              <span style={{ fontSize: '12px', color: '#655358' }}>{t('safety.zeroRecordings')}</span>
               <ChevronRight size={14} color="var(--color-text-muted)" />
             </div>
           </div>
@@ -694,7 +911,7 @@ export const MySafetyScreen: React.FC = () => {
               backgroundColor: '#FFFFFF',
               borderTopLeftRadius: '22px',
               borderTopRightRadius: '22px',
-              padding: '20px',
+              padding: '20px 20px calc(76px + env(safe-area-inset-bottom, 0px)) 20px',
               maxHeight: '80%',
               boxShadow: '0 -8px 24px rgba(0, 0, 0, 0.12)',
             }}
@@ -710,6 +927,7 @@ export const MySafetyScreen: React.FC = () => {
               }}
             >
               <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--color-text)' }}>
+                {activeModal === 'voice' && 'Automatic Voice SOS'}
                 {activeModal === 'contacts' && 'Manage Trusted Contacts'}
                 {activeModal === 'timer' && 'Safety Check-in Timer'}
                 {activeModal === 'fakeCall' && 'Fake Call Decoy'}
@@ -736,73 +954,377 @@ export const MySafetyScreen: React.FC = () => {
               </button>
             </div>
 
-            {/* Modal Content: Contacts */}
-            {activeModal === 'contacts' && (
-              <div>
-                <p style={{ fontSize: '12px', color: '#655358', marginBottom: '14px', lineHeight: 1.45 }}>
-                  Trusted contacts receive instant SMS coordinates and a dispatch alert when SOS triggers.
-                </p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '14px' }}>
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '10px 12px',
-                      borderRadius: '10px',
-                      backgroundColor: 'var(--color-surface-soft)',
-                      border: '1px solid var(--color-border)',
-                    }}
-                  >
-                    <div>
-                      <p style={{ fontSize: '13px', fontWeight: 600 }}>Maya Lin (Sister)</p>
-                      <p style={{ fontSize: '10.5px', color: '#655358' }}>+1 (555) 392-1048 • SMS & Call</p>
+            {/* Modal Content: Automatic Voice SOS */}
+            {activeModal === 'voice' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', maxHeight: '68vh', overflowY: 'auto' }}>
+                {/* 1. Status & Master Toggle */}
+                <div
+                  style={{
+                    padding: '12px 14px',
+                    borderRadius: '12px',
+                    backgroundColor: isVoiceListening ? '#E8F5E9' : voiceState === 'permission_denied' ? '#FFEBEE' : 'var(--color-surface-soft)',
+                    border: isVoiceListening ? '1px solid #C8E6C9' : voiceState === 'permission_denied' ? '1px solid #FFCDD2' : '1px solid var(--color-border)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div
+                      style={{
+                        width: '34px',
+                        height: '34px',
+                        borderRadius: '50%',
+                        backgroundColor: isVoiceListening ? '#2E7D32' : 'var(--color-text-muted)',
+                        color: '#FFFFFF',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      {isVoiceListening ? <Mic size={17} /> : <MicOff size={17} />}
                     </div>
-                    <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--color-rose-deep)' }}>
-                      Verified
-                    </span>
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--color-text)' }}>
+                        {isVoiceListening ? 'Microphone Listening Active' : voiceState === 'permission_denied' ? 'Microphone Access Blocked' : 'Voice Activation Paused'}
+                      </div>
+                      <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginTop: '2px' }}>
+                        {isVoiceListening ? 'Say any keyword to trigger instant hands-free SOS' : voiceState === 'permission_denied' ? 'Grant permission in browser to enable' : 'Tap switch to activate keyword spotting'}
+                      </div>
+                    </div>
                   </div>
 
-                  <div
+                  <button
+                    onClick={handleToggleVoice}
                     style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '10px 12px',
-                      borderRadius: '10px',
-                      backgroundColor: 'var(--color-surface-soft)',
-                      border: '1px solid var(--color-border)',
+                      padding: '7px 14px',
+                      borderRadius: '16px',
+                      backgroundColor: isVoiceListening ? '#2E7D32' : 'var(--color-rose-deep)',
+                      color: '#FFFFFF',
+                      fontSize: '11.5px',
+                      fontWeight: 700,
+                      border: 'none',
+                      cursor: 'pointer',
                     }}
                   >
-                    <div>
-                      <p style={{ fontSize: '13px', fontWeight: 600 }}>David K. (Partner)</p>
-                      <p style={{ fontSize: '10.5px', color: '#655358' }}>+1 (555) 720-9112 • SMS & Call</p>
-                    </div>
-                    <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--color-rose-deep)' }}>
-                      Verified
-                    </span>
+                    {isVoiceListening ? 'Turn Off' : 'Enable'}
+                  </button>
+                </div>
+
+                {/* 2. Standalone Emergency Keywords */}
+                <div>
+                  <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--color-text)', marginBottom: '4px' }}>
+                    Standalone Emergency Keywords
+                  </div>
+                  <p style={{ fontSize: '11px', color: '#655358', margin: '0 0 8px 0' }}>
+                    Spoken as single clear words. Partial matches (e.g. "shelf", "helping") are ignored.
+                  </p>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                    {DEFAULT_STANDALONE_KEYWORDS.map((kw) => (
+                      <span
+                        key={kw}
+                        style={{
+                          backgroundColor: '#FFF0F2',
+                          color: 'var(--color-sos)',
+                          border: '1px solid #F3CFD2',
+                          borderRadius: '8px',
+                          padding: '4px 10px',
+                          fontSize: '11.5px',
+                          fontWeight: 700,
+                        }}
+                      >
+                        "{kw.toUpperCase()}"
+                      </span>
+                    ))}
                   </div>
                 </div>
 
-                <button
+                {/* 3. Natural Emergency Phrases */}
+                <div>
+                  <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--color-text)', marginBottom: '4px' }}>
+                    Natural Emergency Phrases
+                  </div>
+                  <p style={{ fontSize: '11px', color: '#655358', margin: '0 0 8px 0' }}>
+                    Full natural spoken sentences that trigger the emergency sequence.
+                  </p>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                    {DEFAULT_NATURAL_PHRASES.map((ph) => (
+                      <span
+                        key={ph}
+                        style={{
+                          backgroundColor: 'var(--color-surface-soft)',
+                          color: 'var(--color-text)',
+                          border: '1px solid var(--color-border)',
+                          borderRadius: '8px',
+                          padding: '4px 10px',
+                          fontSize: '11.5px',
+                          fontWeight: 600,
+                        }}
+                      >
+                        "{ph}"
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 4. Custom User Trigger Phrases */}
+                <div>
+                  <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--color-text)', marginBottom: '4px' }}>
+                    Custom Trigger Phrases
+                  </div>
+                  <p style={{ fontSize: '11px', color: '#655358', margin: '0 0 8px 0' }}>
+                    Configure personal safe words or discreet phrases.
+                  </p>
+
+                  <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                    <input
+                      type="text"
+                      placeholder="e.g. Code Red or Need Police"
+                      value={newPhraseInput}
+                      onChange={(e) => setNewPhraseInput(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleAddPhrase()}
+                      style={{
+                        flex: 1,
+                        height: '36px',
+                        padding: '0 12px',
+                        borderRadius: '10px',
+                        border: '1px solid var(--color-border)',
+                        fontSize: '12px',
+                        outline: 'none',
+                      }}
+                    />
+                    <button
+                      onClick={handleAddPhrase}
+                      style={{
+                        padding: '0 14px',
+                        height: '36px',
+                        backgroundColor: 'var(--color-rose-deep)',
+                        color: '#FFFFFF',
+                        border: 'none',
+                        borderRadius: '10px',
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Add
+                    </button>
+                  </div>
+
+                  {phraseError && (
+                    <div style={{ fontSize: '11px', color: 'var(--color-error)', marginBottom: '6px' }}>
+                      {phraseError}
+                    </div>
+                  )}
+
+                  {customKeywords.length > 0 ? (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      {customKeywords.map((ph) => (
+                        <span
+                          key={ph}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            backgroundColor: '#F3E8E9',
+                            color: 'var(--color-text)',
+                            border: '1px solid #E5D0D4',
+                            borderRadius: '8px',
+                            padding: '4px 8px 4px 10px',
+                            fontSize: '11.5px',
+                            fontWeight: 600,
+                          }}
+                        >
+                          <span>"{ph}"</span>
+                          <button
+                            onClick={() => handleRemovePhrase(ph)}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: 'var(--color-text-muted)',
+                              cursor: 'pointer',
+                              padding: '2px',
+                              display: 'flex',
+                              alignItems: 'center',
+                            }}
+                          >
+                            <X size={12} />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p style={{ fontSize: '11px', color: 'var(--color-text-muted)', margin: 0, fontStyle: 'italic' }}>
+                      No custom phrases added yet.
+                    </p>
+                  )}
+                </div>
+
+                {/* 5. Honest Technical & Privacy Disclosure */}
+                <div
                   style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px',
-                    width: '100%',
-                    padding: '10px',
+                    padding: '10px 12px',
                     borderRadius: '10px',
-                    backgroundColor: 'var(--color-surface-soft)',
-                    border: '1px solid var(--color-border)',
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    color: 'var(--color-rose-deep)',
-                    cursor: 'pointer',
+                    backgroundColor: 'rgba(240, 230, 235, 0.4)',
+                    border: '1px solid rgba(220, 200, 210, 0.6)',
+                    fontSize: '10.5px',
+                    lineHeight: 1.45,
+                    color: '#655358',
                   }}
                 >
-                  <Plus size={15} /> Add Another Contact
-                </button>
+                  <div style={{ fontWeight: 700, color: 'var(--color-text)', marginBottom: '2px' }}>
+                    Privacy & System Limits
+                  </div>
+                  <div>
+                    • <strong>Local On-Device Audio:</strong> Spoken audio is analyzed directly by your browser engine. Audio is not retained or uploaded to external servers.
+                  </div>
+                  <div style={{ marginTop: '2px' }}>
+                    • <strong>Browser Requirement:</strong> Hands-free listening runs while this browser tab remains active. Continuous background detection with locked device requires native Android/iOS foreground services.
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Modal Content: Contacts — live editable form */}
+            {activeModal === 'contacts' && (
+              <div>
+                <p style={{ fontSize: '12px', color: '#655358', marginBottom: '14px', lineHeight: 1.45 }}>
+                  These numbers receive instant SMS with your GPS location when SOS triggers.
+                </p>
+
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    contactSettings.setPrimaryPhone(primaryPhone);
+                    contactSettings.setSecondaryPhone(showSecondaryInput ? secondaryPhone : '');
+                    setContactSaveSuccess(true);
+                    setTimeout(() => setContactSaveSuccess(false), 2500);
+                  }}
+                  style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}
+                >
+                  {/* Primary */}
+                  <div>
+                    <label style={{ fontSize: '10.5px', fontWeight: 600, color: 'var(--color-text-muted)', display: 'block', marginBottom: '4px' }}>
+                      Primary Emergency Number
+                    </label>
+                    <input
+                      type="tel"
+                      value={primaryPhone}
+                      onChange={(e) => setPrimaryPhone(e.target.value)}
+                      placeholder="+918197149231"
+                      required
+                      style={{
+                        width: '100%',
+                        height: '40px',
+                        padding: '0 12px',
+                        borderRadius: '8px',
+                        border: '1px solid var(--color-border)',
+                        backgroundColor: 'var(--color-surface-soft)',
+                        fontSize: '13px',
+                        fontWeight: 600,
+                        color: 'var(--color-text)',
+                        boxSizing: 'border-box',
+                      }}
+                    />
+                  </div>
+
+                  {/* Secondary toggle */}
+                  {showSecondaryInput ? (
+                    <div>
+                      <label style={{ fontSize: '10.5px', fontWeight: 600, color: 'var(--color-text-muted)', display: 'block', marginBottom: '4px' }}>
+                        Secondary Number (also gets the SMS)
+                      </label>
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <input
+                          type="tel"
+                          value={secondaryPhone}
+                          onChange={(e) => setSecondaryPhone(e.target.value)}
+                          placeholder="+919876543210"
+                          style={{
+                            flex: 1,
+                            height: '40px',
+                            padding: '0 12px',
+                            borderRadius: '8px',
+                            border: '1px solid var(--color-border)',
+                            backgroundColor: 'var(--color-surface-soft)',
+                            fontSize: '13px',
+                            fontWeight: 600,
+                            color: 'var(--color-text)',
+                            boxSizing: 'border-box',
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSecondaryPhone('');
+                            setShowSecondaryInput(false);
+                            contactSettings.setSecondaryPhone('');
+                          }}
+                          style={{
+                            height: '40px',
+                            padding: '0 10px',
+                            borderRadius: '8px',
+                            border: '1px solid #EDD8DC',
+                            backgroundColor: 'transparent',
+                            color: 'var(--color-sos)',
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setShowSecondaryInput(true)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        width: '100%',
+                        padding: '10px',
+                        borderRadius: '10px',
+                        backgroundColor: 'var(--color-surface-soft)',
+                        border: '1px solid var(--color-border)',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        color: 'var(--color-rose-deep)',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <Plus size={15} /> Add Another Contact
+                    </button>
+                  )}
+
+                  {/* Save */}
+                  <button
+                    type="submit"
+                    style={{
+                      height: '40px',
+                      backgroundColor: contactSaveSuccess ? 'var(--color-success)' : 'var(--color-rose-deep)',
+                      color: '#FFFFFF',
+                      borderRadius: '8px',
+                      border: 'none',
+                      fontWeight: 700,
+                      fontSize: '12.5px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                      transition: 'background-color 0.2s',
+                    }}
+                  >
+                    {contactSaveSuccess
+                      ? <><Check size={14} /><span>Saved!</span></>
+                      : <span>Save Contacts</span>
+                    }
+                  </button>
+                </form>
               </div>
             )}
 
@@ -1072,7 +1594,7 @@ export const MySafetyScreen: React.FC = () => {
                   cursor: 'pointer',
                 }}
               >
-                Done
+                {t('safety.done')}
               </button>
             )}
           </div>

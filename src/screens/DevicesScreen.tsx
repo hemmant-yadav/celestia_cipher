@@ -11,8 +11,10 @@ import {
   Trash2,
   Check,
   Sliders,
-  AlertCircle
+  AlertCircle,
+  Languages
 } from 'lucide-react';
+import { useTranslation } from '../services/i18n';
 
 interface SafetyDevice {
   id: string;
@@ -46,7 +48,26 @@ const INITIAL_DEVICES: SafetyDevice[] = [
 ];
 
 export const DevicesScreen: React.FC = () => {
+  const { t, language, languages, openLanguageModal } = useTranslation();
   const [devices, setDevices] = useState<SafetyDevice[]>(INITIAL_DEVICES);
+
+  const getDeviceDisplayName = (name: string, type: 'smartwatch' | 'keychain') => {
+    if (type === 'smartwatch' || name.includes('Watch')) return t('devices.auraWatch');
+    if (type === 'keychain' || name.includes('Keychain') || name.includes('Tag')) return t('devices.safetyTag');
+    return name;
+  };
+
+  const getStatusDisplayName = (status: 'connected' | 'disconnected' | 'not_responding') => {
+    if (status === 'connected') return t('devices.connected');
+    if (status === 'disconnected') return t('devices.disconnected');
+    return t('devices.notResponding');
+  };
+
+  const getSyncDisplayName = (sync: string) => {
+    if (sync.toLowerCase().includes('just')) return t('devices.justNow');
+    if (sync.toLowerCase().includes('2m')) return t('devices.twoMinAgo');
+    return sync;
+  };
 
   // Alert Settings
   const [lowBatteryAlert, setLowBatteryAlert] = useState(true);
@@ -144,7 +165,7 @@ export const DevicesScreen: React.FC = () => {
               color: 'var(--color-text)',
             }}
           >
-            Devices
+            {t('devices.title')}
           </h1>
           <p
             style={{
@@ -154,33 +175,59 @@ export const DevicesScreen: React.FC = () => {
               marginTop: '3px',
             }}
           >
-            Connected safety devices
+            {t('devices.subtitle')}
           </p>
         </div>
 
-        {/* Minimal Add/Pair Device Button */}
-        {devices.length > 0 && (
+        {/* Header Actions: Language Switcher & Minimal Add/Pair Device Button */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <button
-            onClick={handleStartPairing}
+            onClick={openLanguageModal}
+            title={`Language: ${languages.find((l) => l.code === language)?.nativeName} (Tap to change)`}
+            aria-label="Change Application Language"
             style={{
+              width: '34px',
+              height: '34px',
+              borderRadius: '50%',
+              backgroundColor: 'rgba(255, 255, 255, 0.75)',
+              backdropFilter: 'blur(16px)',
+              WebkitBackdropFilter: 'blur(16px)',
+              border: '1px solid rgba(235, 218, 222, 0.8)',
+              boxShadow: '0 2px 8px rgba(185, 111, 128, 0.08)',
               display: 'flex',
               alignItems: 'center',
-              gap: '4px',
-              padding: '6px 12px',
-              borderRadius: 'var(--radius-full)',
-              backgroundColor: 'var(--color-surface)',
-              border: '1px solid var(--color-border)',
-              fontSize: '11.5px',
-              fontWeight: 600,
-              color: 'var(--color-rose-deep)',
+              justifyContent: 'center',
+              color: 'var(--color-text)',
               cursor: 'pointer',
-              transition: 'background-color 140ms ease',
+              transition: 'transform var(--motion-fast)',
             }}
           >
-            <Plus size={14} />
-            <span>Pair Device</span>
+            <Languages size={16} strokeWidth={1.8} color="var(--color-text)" />
           </button>
-        )}
+
+          {devices.length > 0 && (
+            <button
+              onClick={handleStartPairing}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '6px 12px',
+                borderRadius: 'var(--radius-full)',
+                backgroundColor: 'var(--color-surface)',
+                border: '1px solid var(--color-border)',
+                fontSize: '11.5px',
+                fontWeight: 600,
+                color: 'var(--color-rose-deep)',
+                cursor: 'pointer',
+                transition: 'background-color 140ms ease',
+              }}
+            >
+              <Plus size={14} />
+              <span>{t('devices.pairDevice')}</span>
+            </button>
+          )}
+        </div>
       </header>
 
       {/* ---------------- 1. CONNECTED DEVICES OR EMPTY STATE ---------------- */}
@@ -225,7 +272,7 @@ export const DevicesScreen: React.FC = () => {
               marginBottom: '6px',
             }}
           >
-            No devices connected
+            {t('devices.noDevices')}
           </h2>
 
           <p
@@ -237,7 +284,7 @@ export const DevicesScreen: React.FC = () => {
               marginBottom: '18px',
             }}
           >
-            Pair a smartwatch or dedicated safety beacon for instant tactile SOS triggers when your phone is out of reach.
+            {t('devices.noDevicesDesc')}
           </p>
 
           <button
@@ -256,7 +303,7 @@ export const DevicesScreen: React.FC = () => {
             }}
           >
             <Plus size={15} />
-            <span>Pair a Device</span>
+            <span>{t('devices.pairADevice')}</span>
           </button>
         </div>
       ) : (
@@ -281,7 +328,7 @@ export const DevicesScreen: React.FC = () => {
                 letterSpacing: '0.02em',
               }}
             >
-              Paired Hardware ({devices.length})
+              {t('devices.pairedHardware')} ({devices.length})
             </span>
           </div>
 
@@ -336,22 +383,8 @@ export const DevicesScreen: React.FC = () => {
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <p style={{ fontSize: '13.5px', fontWeight: 600, lineHeight: 1.2 }}>
-                          {device.name}
+                          {getDeviceDisplayName(device.name, device.type)}
                         </p>
-                        {device.isPrimarySos && (
-                          <span
-                            style={{
-                              fontSize: '9.5px',
-                              fontWeight: 700,
-                              color: 'var(--color-rose-deep)',
-                              backgroundColor: 'var(--color-surface-soft)',
-                              padding: '1px 5px',
-                              borderRadius: '4px',
-                            }}
-                          >
-                            Primary SOS
-                          </span>
-                        )}
                       </div>
 
                       {/* Battery & Last Sync */}
@@ -370,7 +403,7 @@ export const DevicesScreen: React.FC = () => {
                           {device.battery}%
                         </span>
                         <span>•</span>
-                        <span>Synced {device.lastSync}</span>
+                        <span>{t('devices.synced')} {getSyncDisplayName(device.lastSync)}</span>
                       </div>
                     </div>
                   </div>
@@ -395,7 +428,7 @@ export const DevicesScreen: React.FC = () => {
                         textTransform: 'capitalize',
                       }}
                     >
-                      {device.status}
+                      {getStatusDisplayName(device.status)}
                     </span>
                     <ChevronRight size={14} color="var(--color-text-muted)" />
                   </div>
@@ -418,7 +451,7 @@ export const DevicesScreen: React.FC = () => {
               letterSpacing: '0.02em',
             }}
           >
-            Device Alerts
+            {t('devices.alerts')}
           </span>
         </div>
 
@@ -445,9 +478,9 @@ export const DevicesScreen: React.FC = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <Battery size={16} color="var(--color-rose-deep)" strokeWidth={1.8} style={{ flexShrink: 0 }} />
               <div>
-                <p style={{ fontSize: '13px', fontWeight: 600 }}>Low Battery Warning</p>
+                <p style={{ fontSize: '13px', fontWeight: 600 }}>{t('devices.lowBattery')}</p>
                 <p style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
-                  Alert when device battery drops below 20%
+                  {t('devices.lowBatteryDesc')}
                 </p>
               </div>
             </div>
@@ -499,9 +532,9 @@ export const DevicesScreen: React.FC = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <Bell size={16} color="var(--color-rose-deep)" strokeWidth={1.8} style={{ flexShrink: 0 }} />
               <div>
-                <p style={{ fontSize: '13px', fontWeight: 600 }}>Disconnection Alert</p>
+                <p style={{ fontSize: '13px', fontWeight: 600 }}>{t('devices.disconnectAlert')}</p>
                 <p style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
-                  Notify if Bluetooth link drops unexpectedly
+                  {t('devices.disconnectAlertDesc')}
                 </p>
               </div>
             </div>
@@ -552,9 +585,9 @@ export const DevicesScreen: React.FC = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <Radio size={16} color="var(--color-rose-deep)" strokeWidth={1.8} style={{ flexShrink: 0 }} />
               <div>
-                <p style={{ fontSize: '13px', fontWeight: 600 }}>Sync Status Alerts</p>
+                <p style={{ fontSize: '13px', fontWeight: 600 }}>{t('devices.syncStatus')}</p>
                 <p style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
-                  Notify if beacon fails check-in over 1 hour
+                  {t('devices.syncStatusDesc')}
                 </p>
               </div>
             </div>
@@ -607,7 +640,7 @@ export const DevicesScreen: React.FC = () => {
               letterSpacing: '0.02em',
             }}
           >
-            Device Preferences
+            {t('devices.preferences')}
           </span>
         </div>
 
@@ -639,12 +672,14 @@ export const DevicesScreen: React.FC = () => {
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <Sliders size={16} color="var(--color-rose-deep)" strokeWidth={1.8} style={{ flexShrink: 0 }} />
-              <p style={{ fontSize: '13px', fontWeight: 600 }}>Primary SOS Trigger</p>
+              <p style={{ fontSize: '13px', fontWeight: 600 }}>{t('devices.primaryTrigger')}</p>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <span style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>
-                {devices.find((d) => d.isPrimarySos)?.name || 'None'}
+                {devices.find((d) => d.isPrimarySos)
+                  ? getDeviceDisplayName(devices.find((d) => d.isPrimarySos)!.name, devices.find((d) => d.isPrimarySos)!.type)
+                  : 'None'}
               </span>
               <ChevronRight size={14} color="var(--color-text-muted)" />
             </div>
@@ -663,9 +698,9 @@ export const DevicesScreen: React.FC = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <Bell size={16} color="var(--color-rose-deep)" strokeWidth={1.8} style={{ flexShrink: 0 }} />
               <div>
-                <p style={{ fontSize: '13px', fontWeight: 600 }}>Wearable Haptics</p>
+                <p style={{ fontSize: '13px', fontWeight: 600 }}>{t('devices.wearableHaptics')}</p>
                 <p style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
-                  Vibrate device on alert confirmation
+                  {t('devices.wearableHapticsDesc')}
                 </p>
               </div>
             </div>
@@ -716,9 +751,9 @@ export const DevicesScreen: React.FC = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <Radio size={16} color="var(--color-rose-deep)" strokeWidth={1.8} style={{ flexShrink: 0 }} />
               <div>
-                <p style={{ fontSize: '13px', fontWeight: 600 }}>Auto-Reconnect</p>
+                <p style={{ fontSize: '13px', fontWeight: 600 }}>{t('devices.autoReconnect')}</p>
                 <p style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
-                  Restore connection when in range
+                  {t('devices.autoReconnectDesc')}
                 </p>
               </div>
             </div>
@@ -813,9 +848,11 @@ export const DevicesScreen: React.FC = () => {
                   )}
                 </div>
                 <div>
-                  <h3 style={{ fontSize: '15px', fontWeight: 700 }}>{selectedDevice.name}</h3>
+                  <h3 style={{ fontSize: '15px', fontWeight: 700 }}>
+                    {getDeviceDisplayName(selectedDevice.name, selectedDevice.type)}
+                  </h3>
                   <p style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
-                    Bluetooth 5.3 Low Energy • Linked
+                    {t('devices.btLinked')}
                   </p>
                 </div>
               </div>
@@ -854,9 +891,9 @@ export const DevicesScreen: React.FC = () => {
                   border: '1px solid var(--color-border)',
                 }}
               >
-                <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>Battery</span>
+                <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>{t('devices.battery')}</span>
                 <p style={{ fontSize: '14px', fontWeight: 700, color: 'var(--color-text)', marginTop: '2px' }}>
-                  {selectedDevice.battery}% Charged
+                  {selectedDevice.battery}% {t('devices.charged')}
                 </p>
               </div>
 
@@ -868,7 +905,7 @@ export const DevicesScreen: React.FC = () => {
                   border: '1px solid var(--color-border)',
                 }}
               >
-                <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>Status</span>
+                <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>{t('devices.status')}</span>
                 <p
                   style={{
                     fontSize: '14px',
@@ -878,7 +915,7 @@ export const DevicesScreen: React.FC = () => {
                     textTransform: 'capitalize',
                   }}
                 >
-                  {selectedDevice.status}
+                  {getStatusDisplayName(selectedDevice.status)}
                 </p>
               </div>
             </div>
@@ -905,7 +942,7 @@ export const DevicesScreen: React.FC = () => {
                 }}
               >
                 <Check size={15} />
-                <span>Set as Primary SOS Trigger</span>
+                <span>{t('devices.setPrimary')}</span>
               </button>
             )}
 
@@ -929,7 +966,7 @@ export const DevicesScreen: React.FC = () => {
               }}
             >
               <Trash2 size={15} />
-              <span>Unpair Device</span>
+              <span>{t('devices.unpair')}</span>
             </button>
           </div>
         </div>
@@ -979,11 +1016,11 @@ export const DevicesScreen: React.FC = () => {
             </div>
 
             <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--color-text)', marginBottom: '6px' }}>
-              Unpair {unpairConfirmDevice.name}?
+              {t('devices.unpairConfirmTitle')} {getDeviceDisplayName(unpairConfirmDevice.name, unpairConfirmDevice.type)}?
             </h3>
 
             <p style={{ fontSize: '11.5px', color: 'var(--color-text-muted)', lineHeight: 1.45, marginBottom: '18px' }}>
-              This wearable will no longer be able to initiate emergency SOS alerts or transmit telemetry.
+              {t('devices.unpairDesc')}
             </p>
 
             <div style={{ display: 'flex', gap: '8px' }}>
@@ -1001,7 +1038,7 @@ export const DevicesScreen: React.FC = () => {
                   cursor: 'pointer',
                 }}
               >
-                Cancel
+                {t('devices.cancel')}
               </button>
               <button
                 onClick={() => handleConfirmUnpair(unpairConfirmDevice.id)}
@@ -1016,7 +1053,7 @@ export const DevicesScreen: React.FC = () => {
                   cursor: 'pointer',
                 }}
               >
-                Unpair
+                {t('devices.unpair')}
               </button>
             </div>
           </div>
@@ -1058,9 +1095,9 @@ export const DevicesScreen: React.FC = () => {
               }}
             >
               <div>
-                <h3 style={{ fontSize: '16px', fontWeight: 700 }}>Pair Safety Device</h3>
+                <h3 style={{ fontSize: '16px', fontWeight: 700 }}>{t('devices.pairSheetTitle')}</h3>
                 <p style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
-                  {isScanning ? 'Scanning for nearby hardware...' : 'Select a device to connect'}
+                  {isScanning ? t('devices.scanning') : t('devices.selectToConnect')}
                 </p>
               </div>
 
@@ -1097,8 +1134,8 @@ export const DevicesScreen: React.FC = () => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <Watch size={18} color="var(--color-rose-deep)" />
                   <div>
-                    <p style={{ fontSize: '13px', fontWeight: 600 }}>Aura Watch Series 2</p>
-                    <p style={{ fontSize: '10.5px', color: 'var(--color-text-muted)' }}>Nearby • Ready to pair</p>
+                    <p style={{ fontSize: '13px', fontWeight: 600 }}>{t('devices.auraWatch')}</p>
+                    <p style={{ fontSize: '10.5px', color: 'var(--color-text-muted)' }}>{t('devices.readyToPair')}</p>
                   </div>
                 </div>
                 <button
@@ -1113,7 +1150,7 @@ export const DevicesScreen: React.FC = () => {
                     cursor: 'pointer',
                   }}
                 >
-                  Connect
+                  {t('devices.connect')}
                 </button>
               </div>
 
@@ -1131,8 +1168,8 @@ export const DevicesScreen: React.FC = () => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <KeyRound size={18} color="var(--color-rose-deep)" />
                   <div>
-                    <p style={{ fontSize: '13px', fontWeight: 600 }}>Safety Keychain Tag</p>
-                    <p style={{ fontSize: '10.5px', color: 'var(--color-text-muted)' }}>Nearby • Beacon discovered</p>
+                    <p style={{ fontSize: '13px', fontWeight: 600 }}>{t('devices.safetyTag')}</p>
+                    <p style={{ fontSize: '10.5px', color: 'var(--color-text-muted)' }}>{t('devices.beaconDiscovered')}</p>
                   </div>
                 </div>
                 <button
@@ -1147,13 +1184,13 @@ export const DevicesScreen: React.FC = () => {
                     cursor: 'pointer',
                   }}
                 >
-                  Connect
+                  {t('devices.connect')}
                 </button>
               </div>
             </div>
 
             <p style={{ fontSize: '11px', color: 'var(--color-text-muted)', textAlign: 'center' }}>
-              Ensure your accessory has Bluetooth turned on and is within 1 meter.
+              {t('devices.pairHint')}
             </p>
           </div>
         </div>

@@ -27,10 +27,7 @@
   height: 660px;
   max-height: calc(100vh - 32px);
   max-height: calc(100dvh - 32px);
-  background-image: url(/assets/safety-bg.jpg);
-  background-size: cover;
-  background-position: center 42%;
-  background-repeat: no-repeat;
+  background-color: var(--color-canvas);
   border-radius: 28px;
   border: 1px solid var(--color-border);
   overflow: hidden;
@@ -39,6 +36,146 @@
   user-select: none;
   box-shadow: 0 14px 32px -8px rgba(185, 111, 128, 0.16), 0 2px 6px rgba(40, 35, 38, 0.04);
   flex-shrink: 0;
+  isolation: isolate;
+}
+
+/* Aesthetic softly blurred background image layer */
+.mobile-app-viewport::before {
+  content: "";
+  position: absolute;
+  inset: -16px;
+  background-image: url(/assets/safety-bg.jpg);
+  background-size: cover;
+  background-position: center 42%;
+  background-repeat: no-repeat;
+  filter: blur(8px) saturate(115%) brightness(1.02);
+  transform: scale(1.08);
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* Ensure all views and screens render cleanly above the background layer */
+.mobile-app-viewport > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Glassmorphic Ultra-Modern Bottom Navigation Bar */
+.bottom-nav-glass {
+  position: absolute !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  z-index: 40 !important;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  padding: 8px 12px calc(10px + env(safe-area-inset-bottom, 0px)) 12px;
+  /* Completely transparent glass - no white slab */
+  background: linear-gradient(180deg, rgba(255, 245, 247, 0.18) 0%, rgba(253, 230, 235, 0.45) 100%);
+  backdrop-filter: blur(24px) saturate(190%);
+  -webkit-backdrop-filter: blur(24px) saturate(190%);
+  border-top: 1px solid rgba(255, 255, 255, 0.55);
+  box-shadow: 0 -4px 24px rgba(185, 111, 128, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  border-bottom-left-radius: 28px;
+  border-bottom-right-radius: 28px;
+}
+
+/* Bottom Navigation Item */
+.bottom-nav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 4px 0 2px;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  outline: none !important;
+  -webkit-tap-highlight-color: transparent;
+  position: relative;
+  transition: transform var(--motion-fast);
+}
+
+.bottom-nav-item:focus,
+.bottom-nav-item:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.bottom-nav-item:active {
+  transform: scale(0.94);
+}
+
+/* Translucent Icon Capsule */
+.bottom-nav-icon-capsule {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 14px;
+  border-radius: 18px;
+  transition: all var(--motion-fast);
+}
+
+/* Inactive Icon Capsule: translucent matching theme */
+.bottom-nav-item:not(.active) .bottom-nav-icon-capsule {
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  color: rgba(109, 61, 72, 0.65);
+}
+
+.bottom-nav-item:not(.active):hover .bottom-nav-icon-capsule {
+  background: rgba(255, 255, 255, 0.35);
+  border-color: rgba(217, 141, 157, 0.4);
+  color: rgba(109, 61, 72, 0.95);
+  transform: translateY(-1px);
+}
+
+/* Active Icon Capsule: glowing translucent rose matching project */
+.bottom-nav-item.active .bottom-nav-icon-capsule {
+  background: linear-gradient(135deg, rgba(217, 141, 157, 0.3) 0%, rgba(185, 111, 128, 0.2) 100%);
+  border: 1px solid rgba(217, 141, 157, 0.45);
+  box-shadow: 0 2px 10px rgba(185, 111, 128, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: var(--color-rose-deep);
+}
+
+/* Nav Item Label */
+.bottom-nav-label {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  line-height: 1.1;
+  letter-spacing: 0.01em;
+  transition: color var(--motion-fast);
+}
+
+.bottom-nav-item:not(.active) .bottom-nav-label {
+  font-weight: 500;
+  color: rgba(109, 61, 72, 0.7);
+}
+
+.bottom-nav-item:not(.active):hover .bottom-nav-label {
+  color: #282326;
+}
+
+.bottom-nav-item.active .bottom-nav-label {
+  font-weight: 700;
+  color: #282326;
+}
+
+/* Active Indicator Dot */
+.bottom-nav-active-dot {
+  position: absolute;
+  bottom: -2px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background-color: var(--color-rose-deep);
+  box-shadow: 0 0 6px var(--color-rose-deep);
 }
 
 /* Responsive: edge-to-edge native appearance on actual mobile devices */
@@ -77,5 +214,71 @@
     box-shadow: none !important;
     margin: 0 !important;
     padding: 0 !important;
+  }
+  .bottom-nav-glass {
+    border-bottom-left-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+  }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-6px); }
+  40%, 80% { transform: translateX(6px); }
+}
+
+.shake {
+  animation: shake 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes typingBounce {
+  0%, 80%, 100% {
+    transform: scale(0.6);
+    opacity: 0.4;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.typing-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--color-rose-deep);
+  animation: typingBounce 1.4s infinite ease-in-out both;
+}
+
+/* Hide scrollbars cleanly while preserving touch/mouse scroll */
+.hide-scrollbar {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+@keyframes messageAppear {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
